@@ -1,16 +1,16 @@
 """
-Tetris en Python con Pygame
+Tetris in Python with Pygame
 ============================
-Características:
-- Sistema de rotación y detección de colisiones fluido.
-- Sistema de generación 7-Bag (estándar de Tetris).
-- Proyección / Pieza fantasma (Ghost piece).
-- Mecánica de Hold (Guardar pieza con 'C' o 'Shift').
-- Previsualización de las siguientes 3 piezas.
-- Animación de eliminación de líneas.
-- Sistema de niveles, puntuación y récord local.
-- Efectos de sonido retro sintetizados proceduralmente.
-- Interfaz gráfica moderna con estilo arcade oscuro y bloques biselados 3D.
+Classic Original Tetris Layout:
+- Board on the left, Next piece & Stats on the right.
+- No hold mechanic or left panel.
+- 7-Bag piece generation system.
+- Ghost piece projection.
+- Single Next piece preview.
+- Line clear flash animation.
+- Level, score, lines, and high score tracking.
+- Procedural retro sound effects synthesized in memory.
+- Modern dark neon arcade UI with beveled 3D blocks.
 """
 
 import math
@@ -20,7 +20,7 @@ import pygame
 import numpy as np
 
 # -------------------------------------------------------------
-# Configuración y Constantes
+# Configuration and Constants
 # -------------------------------------------------------------
 COLS = 10
 ROWS = 20
@@ -29,15 +29,14 @@ BLOCK_SIZE = 32
 BOARD_WIDTH = COLS * BLOCK_SIZE    # 320 px
 BOARD_HEIGHT = ROWS * BLOCK_SIZE   # 640 px
 
-SIDE_PANEL_LEFT_W = 160
 SIDE_PANEL_RIGHT_W = 200
 MARGIN = 24
 
-SCREEN_WIDTH = SIDE_PANEL_LEFT_W + BOARD_WIDTH + SIDE_PANEL_RIGHT_W + MARGIN * 4
-SCREEN_HEIGHT = BOARD_HEIGHT + MARGIN * 2
+SCREEN_WIDTH = BOARD_WIDTH + SIDE_PANEL_RIGHT_W + MARGIN * 3  # 592 px
+SCREEN_HEIGHT = BOARD_HEIGHT + MARGIN * 2                     # 688 px
 FPS = 60
 
-# Paleta de colores (Estilo Cyberpunk / Neon Arcade)
+# Color Palette (Dark Neon Arcade Style)
 COLOR_BG = (15, 17, 26)
 COLOR_PANEL_BG = (22, 26, 40)
 COLOR_PANEL_BORDER = (45, 55, 80)
@@ -47,18 +46,18 @@ COLOR_TEXT_PRIMARY = (240, 243, 250)
 COLOR_TEXT_MUTED = (140, 150, 175)
 COLOR_ACCENT = (255, 180, 50)
 
-# Colores de las piezas (Tetrominoes)
+# Tetromino Colors
 TETROMINO_COLORS = {
     'I': (0, 240, 240),     # Cyan
-    'J': (0, 100, 255),     # Azul
-    'L': (255, 140, 0),     # Naranja
-    'O': (255, 220, 0),     # Amarillo
-    'S': (50, 220, 50),     # Verde
-    'T': (160, 40, 240),    # Morado / Violeta
-    'Z': (240, 40, 40)      # Rojo
+    'J': (0, 100, 255),     # Blue
+    'L': (255, 140, 0),     # Orange
+    'O': (255, 220, 0),     # Yellow
+    'S': (50, 220, 50),     # Green
+    'T': (160, 40, 240),    # Purple / Magenta
+    'Z': (240, 40, 40)      # Red
 }
 
-# Formas de las piezas (representadas como matrices 4x4 o 3x3)
+# Tetromino Shapes (Matrices 4x4 or 3x3)
 SHAPES = {
     'I': [
         [[0, 0, 0, 0],
@@ -156,10 +155,10 @@ SHAPES = {
 
 
 # -------------------------------------------------------------
-# Generador de Sonidos Sintetizados (Retro SFX)
+# Procedural Retro Sound Effects Generator
 # -------------------------------------------------------------
 class SoundManager:
-    """Genera sonidos de estilo retro en memoria usando numpy y pygame.sndarray."""
+    """Generates retro SFX in memory using numpy and pygame.sndarray."""
     def __init__(self):
         self.enabled = False
         self.sounds = {}
@@ -170,7 +169,7 @@ class SoundManager:
             self.enabled = True
             self._generate_sounds()
         except Exception as e:
-            print(f"Aviso: Sonido desactivado ({e})")
+            print(f"Warning: Audio disabled ({e})")
             self.enabled = False
 
     def _create_tone(self, freq_start, freq_end, duration_s, vol=0.25, waveform="sine"):
@@ -203,7 +202,6 @@ class SoundManager:
             self.sounds['clear'] = self._create_tone(523, 784, 0.18, vol=0.28, waveform="square")
             self.sounds['tetris'] = self._create_tone(659, 1046, 0.35, vol=0.32, waveform="square")
             self.sounds['gameover'] = self._create_tone(300, 80, 0.5, vol=0.35, waveform="sawtooth")
-            self.sounds['hold'] = self._create_tone(350, 480, 0.08, vol=0.18, waveform="sine")
         except Exception:
             self.enabled = False
 
@@ -216,7 +214,7 @@ class SoundManager:
 
 
 # -------------------------------------------------------------
-# Clase Pieza (Tetromino)
+# Piece Class (Tetromino)
 # -------------------------------------------------------------
 class Piece:
     def __init__(self, shape_name):
@@ -225,7 +223,7 @@ class Piece:
         self.color = TETROMINO_COLORS[shape_name]
         self.rotation_index = 0
         self.matrix = self.rotations[0]
-        # Posición inicial centrada arriba
+        # Start centered at top
         self.x = (COLS - len(self.matrix[0])) // 2
         self.y = 0
 
@@ -243,17 +241,17 @@ class Piece:
 
 
 # -------------------------------------------------------------
-# Clase Principal del Juego
+# Main Game Class
 # -------------------------------------------------------------
 class TetrisGame:
     def __init__(self):
         pygame.init()
         pygame.font.init()
         self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
-        pygame.display.set_caption("Tetris Arcade")
+        pygame.display.set_caption("Tetris")
         self.clock = pygame.time.Clock()
 
-        # Fuentes
+        # Fonts
         self.font_large = pygame.font.SysFont("segoeui,arial", 32, bold=True)
         self.font_medium = pygame.font.SysFont("segoeui,arial", 20, bold=True)
         self.font_small = pygame.font.SysFont("segoeui,arial", 14)
@@ -264,13 +262,11 @@ class TetrisGame:
         self.reset()
 
     def reset(self):
-        # Tablero 20x10 lleno de None (vacío)
+        # 20x10 board filled with None
         self.board = [[None for _ in range(COLS)] for _ in range(ROWS)]
         self.bag = []
-        self.next_pieces = [self._draw_from_bag() for _ in range(3)]
+        self.next_piece = self._draw_from_bag()
         self.current_piece = self._draw_from_bag()
-        self.hold_piece = None
-        self.can_hold = True
 
         self.score = 0
         self.lines_cleared = 0
@@ -283,7 +279,7 @@ class TetrisGame:
         self.clear_anim_time = 0
 
     def _draw_from_bag(self):
-        """Bolsa de 7 piezas aleatorias (Random Generator Tetris Guideline)."""
+        """Random 7-bag generator (official Tetris guideline)."""
         if not self.bag:
             self.bag = list(SHAPES.keys())
             random.shuffle(self.bag)
@@ -291,9 +287,8 @@ class TetrisGame:
         return Piece(shape)
 
     def _get_fall_speed(self):
-        """Milisegundos entre caídas por gravedad según el nivel."""
-        speed = max(100, 800 - (self.level - 1) * 65)
-        return speed
+        """Milliseconds between gravity drops based on level."""
+        return max(100, 800 - (self.level - 1) * 65)
 
     def valid_position(self, piece, offset_x=0, offset_y=0, test_matrix=None):
         matrix = test_matrix if test_matrix is not None else piece.matrix
@@ -312,7 +307,7 @@ class TetrisGame:
 
     def rotate_current(self, clockwise=True):
         new_matrix, new_index = self.current_piece.rotate(clockwise)
-        # Intentos de Wall-Kick básico (desplazamientos de ajuste)
+        # Basic wall kicks
         kicks = [(0, 0), (-1, 0), (1, 0), (0, -1), (-2, 0), (2, 0)]
         for kx, ky in kicks:
             if self.valid_position(self.current_piece, offset_x=kx, offset_y=ky, test_matrix=new_matrix):
@@ -323,22 +318,8 @@ class TetrisGame:
                 return True
         return False
 
-    def hold(self):
-        if not self.can_hold or self.game_over or self.paused:
-            return
-        self.sound.play('hold')
-        current_shape = self.current_piece.shape_name
-        if self.hold_piece is None:
-            self.hold_piece = Piece(current_shape)
-            self.spawn_next_piece()
-        else:
-            prev_hold = self.hold_piece.shape_name
-            self.hold_piece = Piece(current_shape)
-            self.current_piece = Piece(prev_hold)
-        self.can_hold = False
-
     def get_ghost_y(self):
-        """Calcula la fila de aterrizaje de la pieza fantasma."""
+        """Calculate the landing row of the ghost piece."""
         offset_y = 0
         while self.valid_position(self.current_piece, offset_y=offset_y + 1):
             offset_y += 1
@@ -356,7 +337,7 @@ class TetrisGame:
         self.lock_piece()
 
     def lock_piece(self):
-        # Bloquear pieza actual en el tablero
+        # Lock current piece onto the board
         matrix = self.current_piece.matrix
         for r, row in enumerate(matrix):
             for c, val in enumerate(row):
@@ -369,12 +350,11 @@ class TetrisGame:
                         self.board[by][bx] = self.current_piece.color
 
         if not self.game_over:
-            # Comprobar líneas completas
+            # Check for completed lines
             lines_to_clear = [i for i, row in enumerate(self.board) if all(cell is not None for cell in row)]
             if lines_to_clear:
                 self.clearing_lines = lines_to_clear
-                self.clear_anim_time = 180  # ms de animación de flash
-                # Sonido correspondiente
+                self.clear_anim_time = 180  # ms of flash animation
                 if len(lines_to_clear) >= 4:
                     self.sound.play('tetris')
                 else:
@@ -385,12 +365,11 @@ class TetrisGame:
             self.sound.play('gameover')
 
     def spawn_next_piece(self):
-        self.current_piece = self.next_pieces.pop(0)
-        self.next_pieces.append(self._draw_from_bag())
-        self.can_hold = True
+        self.current_piece = self.next_piece
+        self.next_piece = self._draw_from_bag()
         self.fall_time = 0
 
-        # Si al aparecer ya colisiona, se termina el juego
+        # Collision immediately on spawn means game over
         if not self.valid_position(self.current_piece):
             self.game_over = True
             self.sound.play('gameover')
@@ -400,7 +379,7 @@ class TetrisGame:
         if lines_count == 0:
             return
 
-        # Puntuaciones clásicas de Tetris
+        # Classic Tetris scoring
         pts = {1: 100, 2: 300, 3: 500, 4: 800}.get(lines_count, 100 * lines_count)
         self.score += pts * self.level
         if self.score > self.high_score:
@@ -409,7 +388,7 @@ class TetrisGame:
         self.lines_cleared += lines_count
         self.level = (self.lines_cleared // 10) + 1
 
-        # Eliminar y desplazar líneas hacia abajo
+        # Remove lines and insert new empty rows on top
         new_board = [row for i, row in enumerate(self.board) if i not in self.clearing_lines]
         for _ in range(lines_count):
             new_board.insert(0, [None for _ in range(COLS)])
@@ -419,27 +398,26 @@ class TetrisGame:
         self.spawn_next_piece()
 
     # ---------------------------------------------------------
-    # Renderizado y Gráficos
+    # Rendering and Graphics
     # ---------------------------------------------------------
     def draw_block(self, surface, x, y, color, is_ghost=False, size=BLOCK_SIZE):
-        """Dibuja un bloque con efecto de bisel 3D e iluminación."""
+        """Draws a block with beveled 3D borders and highlights."""
         rect = pygame.Rect(x, y, size, size)
         if is_ghost:
-            # Dibujar contorno elegante para la pieza fantasma
             ghost_surface = pygame.Surface((size, size), pygame.SRCALPHA)
             pygame.draw.rect(ghost_surface, (*color, 80), (2, 2, size - 4, size - 4), border_radius=4)
             pygame.draw.rect(ghost_surface, (*color, 180), (2, 2, size - 4, size - 4), width=2, border_radius=4)
             surface.blit(ghost_surface, (x, y))
             return
 
-        # Color base del bloque
+        # Base color
         pygame.draw.rect(surface, color, rect, border_radius=4)
 
-        # Colores de brillo y sombra
+        # Highlight & shadow colors
         light_color = [min(255, int(c * 1.35) + 30) for c in color]
         dark_color = [max(0, int(c * 0.65)) for c in color]
 
-        # Resaltado superior e izquierdo
+        # Top and left highlights
         pygame.draw.polygon(surface, light_color, [
             (x, y),
             (x + size, y),
@@ -449,7 +427,7 @@ class TetrisGame:
             (x, y + size)
         ])
 
-        # Sombra inferior y derecha
+        # Bottom and right shadows
         pygame.draw.polygon(surface, dark_color, [
             (x + size, y),
             (x + size, y + size),
@@ -459,11 +437,11 @@ class TetrisGame:
             (x + size - 4, y + 4)
         ])
 
-        # Centro suave
+        # Inner soft center
         inner_rect = pygame.Rect(x + 4, y + 4, size - 8, size - 8)
         pygame.draw.rect(surface, color, inner_rect, border_radius=2)
 
-    def draw_piece_preview(self, surface, piece, center_x, center_y, box_size=20):
+    def draw_piece_preview(self, surface, piece, center_x, center_y, box_size=24):
         if not piece:
             return
         matrix = piece.rotations[0]
@@ -480,7 +458,7 @@ class TetrisGame:
                     self.draw_block(surface, bx, by, piece.color, size=box_size)
 
     def draw_panel(self, surface, rect, title=""):
-        """Dibuja un panel redondeado con estilo oscuro y borde suave."""
+        """Draws a rounded dark styled panel container."""
         pygame.draw.rect(surface, COLOR_PANEL_BG, rect, border_radius=10)
         pygame.draw.rect(surface, COLOR_PANEL_BORDER, rect, width=2, border_radius=10)
         if title:
@@ -490,42 +468,14 @@ class TetrisGame:
     def render(self):
         self.screen.fill(COLOR_BG)
 
-        board_x = MARGIN + SIDE_PANEL_LEFT_W + MARGIN
+        board_x = MARGIN
         board_y = MARGIN
 
-        # 1. Panel Izquierdo: HOLD y TECLAS
-        hold_rect = pygame.Rect(MARGIN, MARGIN, SIDE_PANEL_LEFT_W, 140)
-        self.draw_panel(self.screen, hold_rect, "HOLD (C)")
-        if self.hold_piece:
-            self.draw_piece_preview(self.screen, self.hold_piece, hold_rect.centerx, hold_rect.y + 80)
-
-        # Panel de Controles
-        controls_rect = pygame.Rect(MARGIN, MARGIN + 160, SIDE_PANEL_LEFT_W, BOARD_HEIGHT - 160)
-        self.draw_panel(self.screen, controls_rect, "CONTROLES")
-
-        controls_list = [
-            ("← / →", "Mover"),
-            ("↑ / X", "Rotar Der."),
-            ("Z", "Rotar Izq."),
-            ("↓", "Bajar suave"),
-            ("ESPACIO", "Caída rápida"),
-            ("C / Shift", "Guardar"),
-            ("P / Esc", "Pausar"),
-            ("R", "Reiniciar")
-        ]
-        curr_y = controls_rect.y + 50
-        for key_text, desc_text in controls_list:
-            k_surf = self.font_small.render(key_text, True, COLOR_ACCENT)
-            d_surf = self.font_small.render(desc_text, True, COLOR_TEXT_MUTED)
-            self.screen.blit(k_surf, (controls_rect.x + 14, curr_y))
-            self.screen.blit(d_surf, (controls_rect.x + 14, curr_y + 16))
-            curr_y += 42
-
-        # 2. Tablero Central de Juego
+        # 1. Central Board (On the left side like original Tetris)
         board_rect = pygame.Rect(board_x, board_y, BOARD_WIDTH, BOARD_HEIGHT)
         pygame.draw.rect(self.screen, COLOR_GRID_BG, board_rect, border_radius=6)
 
-        # Líneas de cuadrícula sutiles
+        # Subtle grid lines
         for c in range(COLS + 1):
             gx = board_x + c * BLOCK_SIZE
             pygame.draw.line(self.screen, COLOR_GRID_LINES, (gx, board_y), (gx, board_y + BOARD_HEIGHT), 1)
@@ -533,21 +483,20 @@ class TetrisGame:
             gy = board_y + r * BLOCK_SIZE
             pygame.draw.line(self.screen, COLOR_GRID_LINES, (board_x, gy), (board_x + BOARD_WIDTH, gy), 1)
 
-        # Bloques fijados en el tablero
+        # Locked board blocks
         for r in range(ROWS):
             for c in range(COLS):
                 cell_color = self.board[r][c]
                 if cell_color is not None:
-                    # Si la fila está siendo eliminada, parpadea en blanco
                     if r in self.clearing_lines:
                         flash_rect = pygame.Rect(board_x + c * BLOCK_SIZE, board_y + r * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE)
                         pygame.draw.rect(self.screen, (255, 255, 255), flash_rect, border_radius=2)
                     else:
                         self.draw_block(self.screen, board_x + c * BLOCK_SIZE, board_y + r * BLOCK_SIZE, cell_color)
 
-        # Si no hay animación de borrado y el juego sigue, dibujar fantasma y pieza activa
+        # Ghost piece and active piece
         if not self.clearing_lines and not self.game_over:
-            # Pieza fantasma (Ghost piece)
+            # Ghost piece
             ghost_y = self.get_ghost_y()
             for r, row in enumerate(self.current_piece.matrix):
                 for c, val in enumerate(row):
@@ -556,7 +505,7 @@ class TetrisGame:
                         by = board_y + (ghost_y + r) * BLOCK_SIZE
                         self.draw_block(self.screen, bx, by, self.current_piece.color, is_ghost=True)
 
-            # Pieza actual
+            # Active piece
             for r, row in enumerate(self.current_piece.matrix):
                 for c, val in enumerate(row):
                     if val:
@@ -565,29 +514,26 @@ class TetrisGame:
                         if by >= board_y:
                             self.draw_block(self.screen, bx, by, self.current_piece.color)
 
-        # Borde exterior del tablero
+        # Board border
         pygame.draw.rect(self.screen, COLOR_PANEL_BORDER, board_rect, width=3, border_radius=6)
 
-        # 3. Panel Derecho: NEXT, SCORE, NIVEL, LÍNEAS
+        # 2. Right Side: NEXT and STATS Panels
         right_panel_x = board_x + BOARD_WIDTH + MARGIN
 
-        # Panel Siguiente (Next)
-        next_rect = pygame.Rect(right_panel_x, MARGIN, SIDE_PANEL_RIGHT_W, 250)
-        self.draw_panel(self.screen, next_rect, "SIGUIENTES")
-        preview_y = next_rect.y + 60
-        for i, npiece in enumerate(self.next_pieces):
-            self.draw_piece_preview(self.screen, npiece, next_rect.centerx, preview_y, box_size=18)
-            preview_y += 65
+        # Next Piece Panel
+        next_rect = pygame.Rect(right_panel_x, MARGIN, SIDE_PANEL_RIGHT_W, 160)
+        self.draw_panel(self.screen, next_rect, "NEXT")
+        self.draw_piece_preview(self.screen, self.next_piece, next_rect.centerx, next_rect.y + 92, box_size=24)
 
-        # Panel de Puntuación
-        stats_rect = pygame.Rect(right_panel_x, MARGIN + 270, SIDE_PANEL_RIGHT_W, BOARD_HEIGHT - 270)
-        self.draw_panel(self.screen, stats_rect, "ESTADÍSTICAS")
+        # Stats Panel
+        stats_rect = pygame.Rect(right_panel_x, MARGIN + 180, SIDE_PANEL_RIGHT_W, BOARD_HEIGHT - 180)
+        self.draw_panel(self.screen, stats_rect, "STATS")
 
         stat_items = [
-            ("PUNTOS", f"{self.score:,}"),
-            ("RÉCORD", f"{self.high_score:,}"),
-            ("NIVEL", str(self.level)),
-            ("LÍNEAS", str(self.lines_cleared))
+            ("SCORE", f"{self.score:,}"),
+            ("HIGH SCORE", f"{self.high_score:,}"),
+            ("LEVEL", str(self.level)),
+            ("LINES", str(self.lines_cleared))
         ]
         sy = stats_rect.y + 55
         for label, val in stat_items:
@@ -595,17 +541,17 @@ class TetrisGame:
             val_surf = self.font_large.render(val, True, COLOR_TEXT_PRIMARY)
             self.screen.blit(lbl_surf, (stats_rect.x + 18, sy))
             self.screen.blit(val_surf, (stats_rect.x + 18, sy + 18))
-            sy += 65
+            sy += 75
 
-        # 4. Mensajes Overlay: Pausa o Fin de Partida (Game Over)
+        # 3. Overlay Messages: Paused or Game Over
         if self.game_over:
             overlay = pygame.Surface((BOARD_WIDTH, BOARD_HEIGHT), pygame.SRCALPHA)
             overlay.fill((0, 0, 0, 200))
             self.screen.blit(overlay, (board_x, board_y))
 
             t1 = self.font_title.render("GAME OVER", True, (255, 60, 60))
-            t2 = self.font_medium.render(f"Puntos: {self.score:,}", True, COLOR_TEXT_PRIMARY)
-            t3 = self.font_small.render("Pulsa 'R' para reiniciar", True, COLOR_ACCENT)
+            t2 = self.font_medium.render(f"Score: {self.score:,}", True, COLOR_TEXT_PRIMARY)
+            t3 = self.font_small.render("Press 'R' to Restart", True, COLOR_ACCENT)
 
             self.screen.blit(t1, (board_x + (BOARD_WIDTH - t1.get_width()) // 2, board_y + 220))
             self.screen.blit(t2, (board_x + (BOARD_WIDTH - t2.get_width()) // 2, board_y + 280))
@@ -616,8 +562,8 @@ class TetrisGame:
             overlay.fill((0, 0, 0, 180))
             self.screen.blit(overlay, (board_x, board_y))
 
-            t1 = self.font_title.render("PAUSA", True, COLOR_ACCENT)
-            t2 = self.font_small.render("Pulsa 'P' para continuar", True, COLOR_TEXT_PRIMARY)
+            t1 = self.font_title.render("PAUSED", True, COLOR_ACCENT)
+            t2 = self.font_small.render("Press 'P' to Resume", True, COLOR_TEXT_PRIMARY)
 
             self.screen.blit(t1, (board_x + (BOARD_WIDTH - t1.get_width()) // 2, board_y + 250))
             self.screen.blit(t2, (board_x + (BOARD_WIDTH - t2.get_width()) // 2, board_y + 310))
@@ -625,17 +571,17 @@ class TetrisGame:
         pygame.display.flip()
 
     # ---------------------------------------------------------
-    # Bucle Principal de Eventos y Lógica
+    # Main Game Loop
     # ---------------------------------------------------------
     def run(self):
-        # Repetición de teclas (DAS - Delayed Auto Shift): 160ms inicio, 40ms repetición
+        # Key repeat (DAS): 160ms initial delay, 40ms interval
         pygame.key.set_repeat(160, 40)
 
         running = True
         while running:
             delta_ms = self.clock.tick(FPS)
 
-            # Manejo de animación de líneas eliminadas
+            # Line clear animation handling
             if self.clearing_lines:
                 self.clear_anim_time -= delta_ms
                 if self.clear_anim_time <= 0:
@@ -681,10 +627,7 @@ class TetrisGame:
                         elif event.key == pygame.K_SPACE:
                             self.hard_drop()
 
-                        elif event.key in (pygame.K_c, pygame.K_LSHIFT, pygame.K_RSHIFT):
-                            self.hold()
-
-            # Lógica de caída por gravedad
+            # Gravity fall logic
             if not self.game_over and not self.paused and not self.clearing_lines:
                 self.fall_time += delta_ms
                 if self.fall_time >= self._get_fall_speed():
